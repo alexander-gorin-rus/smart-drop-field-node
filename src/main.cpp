@@ -1,72 +1,50 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_SHT31.h>
+#include <SPI.h>
+#include <LoRa.h>
 
-#define SOIL_SENSOR_PIN A0
-
-Adafruit_SHT31 sht31 = Adafruit_SHT31();
+// SX1278
+#define LORA_SS     10
+#define LORA_RST     9
+#define LORA_DIO0    2
 
 void setup() {
+
   Serial.begin(9600);
-  delay(1000);
+
+  while (!Serial) {}
 
   Serial.println();
-  Serial.println("SMART DROP SENSOR TEST");
+  Serial.println("SMART DROP LORA TEST");
 
-  Wire.begin();
+  LoRa.setPins(
+    LORA_SS,
+    LORA_RST,
+    LORA_DIO0
+  );
 
-  if (!sht31.begin(0x44)) {
-    Serial.println("ERROR: SHT3X NOT FOUND");
+  if (!LoRa.begin(433E6)) {
+
+    Serial.println("LORA INIT FAILED");
 
     while (true) {
       delay(1000);
     }
   }
 
-  Serial.println("SHT3X CONNECTED");
-  Serial.println();
+  Serial.println("LORA INIT SUCCESS");
 }
 
 void loop() {
 
-  // ===== SOIL SENSOR =====
-  int soilRaw = analogRead(SOIL_SENSOR_PIN);
+  Serial.println("Sending packet...");
 
-  // Калибровка
-  int soilPercent = map(soilRaw, 430, 170, 0, 100);
+  LoRa.beginPacket();
 
-  // Ограничение диапазона
-  soilPercent = constrain(soilPercent, 0, 100);
+  LoRa.print("HELLO SMART DROP");
 
-  // ===== AIR SENSOR =====
-  float temperature = sht31.readTemperature();
-  float humidity = sht31.readHumidity();
+  LoRa.endPacket();
 
-  // ===== OUTPUT =====
-  Serial.println("========== SENSOR DATA ==========");
+  Serial.println("Packet sent");
 
-  Serial.print("Soil Raw: ");
-  Serial.println(soilRaw);
-
-  Serial.print("Soil Moisture: ");
-  Serial.print(soilPercent);
-  Serial.println(" %");
-
-  if (isnan(temperature) || isnan(humidity)) {
-
-    Serial.println("SHT3X READ ERROR");
-
-  } else {
-
-    Serial.print("Temperature: ");
-    Serial.print(temperature);
-    Serial.println(" C");
-
-    Serial.print("Humidity: ");
-    Serial.print(humidity);
-    Serial.println(" %");
-  }
-
-  Serial.println();
-  delay(2000);
+  delay(3000);
 }
