@@ -1,25 +1,18 @@
 #include <Arduino.h>
-#include <SPI.h>
 #include <Wire.h>
-#include <LoRa.h>
+#include <SPI.h>
 #include <Adafruit_SHT31.h>
 
-// ===== NODE CONFIG =====
-#define NODE_ID 1
+#define I2C_SDA_PIN 3
+#define I2C_SCL_PIN 2
+#define SOIL_SENSOR_PIN 4
 
-// ===== SOIL SENSOR =====
-#define SOIL_SENSOR_PIN A0
-
-// Calibration values
-#define SOIL_DRY_RAW 430
-#define SOIL_WET_RAW 170
-
-// ===== LORA SX1278 =====
-#define LORA_SS   10
-#define LORA_RST  9
-#define LORA_DIO0 2
+#define SOIL_DRY_RAW 2630
+#define SOIL_WET_RAW 1180
 
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
+
+bool shtOk = false;
 
 int readSoilPercent(int rawValue) {
   int percent = map(rawValue, SOIL_DRY_RAW, SOIL_WET_RAW, 0, 100);
@@ -27,34 +20,24 @@ int readSoilPercent(int rawValue) {
 }
 
 void setup() {
-  Serial.begin(9600);
-  delay(1000);
+  Serial.begin(115200);
+  delay(3000);
 
   Serial.println();
-  Serial.println("SMART DROP FIELD NODE");
-  Serial.println("Sensors + LoRa test");
+  Serial.println("SMART DROP ESP32-C3 FIELD NODE");
+  Serial.println("Sensors test only");
 
-  Wire.begin();
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
-  if (!sht31.begin(0x44)) {
+  shtOk = sht31.begin(0x44);
+
+  if (shtOk) {
+    Serial.println("SHT3X CONNECTED");
+  } else {
     Serial.println("ERROR: SHT3X NOT FOUND");
-    while (true) {
-      delay(1000);
-    }
+    Serial.println("Will continue soil sensor test anyway");
   }
 
-  Serial.println("SHT3X CONNECTED");
-
-  LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
-
-  if (!LoRa.begin(433E6)) {
-    Serial.println("ERROR: LORA INIT FAILED");
-    while (true) {
-      delay(1000);
-    }
-  }
-
-  Serial.println("LORA INIT SUCCESS");
   Serial.println();
 }
 
@@ -62,28 +45,8 @@ void loop() {
   int soilRaw = analogRead(SOIL_SENSOR_PIN);
   int soilPercent = readSoilPercent(soilRaw);
 
-  float temperature = sht31.readTemperature();
-  float humidity = sht31.readHumidity();
-
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("ERROR: SHT3X READ FAILED");
-    delay(5000);
-    return;
-  }
-
-  String packet = "";
-  packet += "NODE:";
-  packet += NODE_ID;
-  packet += ";SOIL_RAW:";
-  packet += soilRaw;
-  packet += ";SOIL:";
-  packet += soilPercent;
-  packet += ";TEMP:";
-  packet += String(temperature, 1);
-  packet += ";HUM:";
-  packet += String(humidity, 1);
-
   Serial.println("========== SENSOR DATA ==========");
+
   Serial.print("Soil Raw: ");
   Serial.println(soilRaw);
 
@@ -91,23 +54,21 @@ void loop() {
   Serial.print(soilPercent);
   Serial.println(" %");
 
-  Serial.print("Temperature: ");
-  Serial.print(temperature, 1);
-  Serial.println(" C");
+  if (shtOk) {
+    float temperature = sht31.readTemperature();
+    float humidity = sht31.readHumidity();
 
-  Serial.print("Humidity: ");
-  Serial.print(humidity, 1);
-  Serial.println(" %");
+    Serial.print("Temperature: ");
+    Serial.print(temperature, 1);
+    Serial.println(" C");
 
-  Serial.print("LoRa Packet: ");
-  Serial.println(packet);
+    Serial.print("Humidity: ");
+    Serial.print(humidity, 1);
+    Serial.println(" %");
+  } else {
+    Serial.println("SHT3X: NOT CONNECTED");
+  }
 
-  LoRa.beginPacket();
-  LoRa.print(packet);
-  LoRa.endPacket();
-
-  Serial.println("LoRa packet sent");
   Serial.println();
-
-  delay(5000);
+  delay(2000);
 }
