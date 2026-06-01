@@ -1,48 +1,50 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <SPI.h>
 #include <Adafruit_SHT31.h>
 
-#define SOIL_SENSOR_PIN A0
+#define I2C_SDA_PIN 3
+#define I2C_SCL_PIN 2
+#define SOIL_SENSOR_PIN 4
+
+#define SOIL_DRY_RAW 2630
+#define SOIL_WET_RAW 1180
 
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 
+bool shtOk = false;
+
+int readSoilPercent(int rawValue) {
+  int percent = map(rawValue, SOIL_DRY_RAW, SOIL_WET_RAW, 0, 100);
+  return constrain(percent, 0, 100);
+}
+
 void setup() {
-  Serial.begin(9600);
-  delay(1000);
+  Serial.begin(115200);
+  delay(3000);
 
   Serial.println();
-  Serial.println("SMART DROP SENSOR TEST");
+  Serial.println("SMART DROP ESP32-C3 FIELD NODE");
+  Serial.println("Sensors test only");
 
-  Wire.begin();
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
-  if (!sht31.begin(0x44)) {
+  shtOk = sht31.begin(0x44);
+
+  if (shtOk) {
+    Serial.println("SHT3X CONNECTED");
+  } else {
     Serial.println("ERROR: SHT3X NOT FOUND");
-
-    while (true) {
-      delay(1000);
-    }
+    Serial.println("Will continue soil sensor test anyway");
   }
 
-  Serial.println("SHT3X CONNECTED");
   Serial.println();
 }
 
 void loop() {
-
-  // ===== SOIL SENSOR =====
   int soilRaw = analogRead(SOIL_SENSOR_PIN);
+  int soilPercent = readSoilPercent(soilRaw);
 
-  // Калибровка
-  int soilPercent = map(soilRaw, 430, 170, 0, 100);
-
-  // Ограничение диапазона
-  soilPercent = constrain(soilPercent, 0, 100);
-
-  // ===== AIR SENSOR =====
-  float temperature = sht31.readTemperature();
-  float humidity = sht31.readHumidity();
-
-  // ===== OUTPUT =====
   Serial.println("========== SENSOR DATA ==========");
 
   Serial.print("Soil Raw: ");
@@ -52,19 +54,19 @@ void loop() {
   Serial.print(soilPercent);
   Serial.println(" %");
 
-  if (isnan(temperature) || isnan(humidity)) {
-
-    Serial.println("SHT3X READ ERROR");
-
-  } else {
+  if (shtOk) {
+    float temperature = sht31.readTemperature();
+    float humidity = sht31.readHumidity();
 
     Serial.print("Temperature: ");
-    Serial.print(temperature);
+    Serial.print(temperature, 1);
     Serial.println(" C");
 
     Serial.print("Humidity: ");
-    Serial.print(humidity);
+    Serial.print(humidity, 1);
     Serial.println(" %");
+  } else {
+    Serial.println("SHT3X: NOT CONNECTED");
   }
 
   Serial.println();
