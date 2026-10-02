@@ -6,8 +6,6 @@
 #include "esp_sleep.h"
 
 #define BATTERY_ADC_PIN 0
-
-#define BATTERY_DIVIDER_RATIO 2.0f
 #define BATTERY_CALIBRATION 0.9125f
 #define BATTERY_R1 10000.0f
 #define BATTERY_R2 10000.0f
